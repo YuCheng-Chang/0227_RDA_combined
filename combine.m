@@ -1,22 +1,3 @@
-%% ***********************************************************************   
-% Simple MATLAB RDA Client
-%
-% Demonstration file for implementing a simple MATLAB client for the
-% RDA tcpip interface of the BrainVision Recorder.
-% It reads all information of the recorded EEG,
-% prints EEG and marker information to the
-% MATLAB console and calculates and prints the average power every second.
-%
-%
-% Brain Products GmbH 
-% Gilching/Freiburg, Germany
-% www.brainproducts.com
-%
-%
-% This RDA Client uses version 2.x of the tcp/udp/ip Toolbox by
-% Peter Rydes酹er which can be downloaded from the Mathworks website
-%
-% 
 
 %% ***********************************************************************   
 % Main RDA Client function
@@ -24,33 +5,31 @@ function combine()
     addpath('G:\我的雲端硬碟\Documents\110上學期\研究\MAGIC-master');
     firstime = 0;
     eegsample = 1000;
-    magstimObject = rapid('COM4','Rapid','7cef-6da58442-3e');
-    magstimObject.connect();
-
-    window = 515;
-    
+    com='COM4';
+    magstimObject = rapid(com,'Rapid','7cef-6da58442-3e');
+    try
+        magstimObject.connect();
+    catch
+        s=serial(com);
+        fclose(s); 
+        fclose(instrfind('Port',com,'Status','open'));
+        delete(s);
+        magstimObject.connect();
+    end
+    disp('connect');
+    window = 1000;
+    p = 13;
     edge = 37;
     forwardsample = 500;
     sample = 0;
     fs = 1000;
-    n = 500;
-    %hilsample = 0;
-    p = 27;
-    phase_idx = 1;
- 
-    x1 = (1:window-edge+forwardsample)*(1/eegsample);
-    x2 = (1:window)*(1/eegsample);
+    
     allvec = [];
-    
-    phase = [];
-    op_phase = [];
-    real_phase = [];
-    concate_phase = [];
-    % Change for individual recorder host
-    recorderip = '127.0.0.1';
+
     
     
-    recorderip = '192.168.244.154';
+    %every time change
+    recorderip = '192.168.43.5';
 
     % Establish connection to BrainVision Recorder Software 32Bit RDA-Port
     % (use 51234 to connect with 16Bit Port)
@@ -95,17 +74,17 @@ function combine()
                         [datahdr, data, markers] = ReadDataMessage(con, hdr, props);
 
                         % check tcpip buffer overflow
-                        if lastBlock ~= -1 && datahdr.block > lastBlock + 1
-                            disp(['******* Overflow with ' int2str(datahdr.block - lastBlock) ' blocks ******']);
-                        end
+%                         if lastBlock ~= -1 && datahdr.block > lastBlock + 1
+%                             disp(['******* Overflow with ' int2str(datahdr.block - lastBlock) ' blocks ******']);
+%                         end
                         lastBlock = datahdr.block;
 
                         % print marker info to MATLAB console
-                        if datahdr.markerCount > 0
-                            for m = 1:datahdr.markerCount
-                                disp(markers(m));
-                            end    
-                        end
+%                         if datahdr.markerCount > 0
+%                             for m = 1:datahdr.markerCount
+%                                 disp(markers(m));
+%                             end    
+%                         end
 
                         % Process EEG data,
                         % in this case extract last recorded second,
@@ -114,28 +93,26 @@ function combine()
                         test = [test EEGData];
                         dims = size(data1s);
                         
-                        if firstime == 0 && size(test,2) == 10000
-                            [optimal] = main_combine(double(test(4,:)),fs);
-                            firstime = 1;
-                            fprintf('optimal=');
-                            disp(optimal);
-                        end
-                        if firstime == 1 && ~isempty(optimal)
+                        
+                        if firstime == 0
 %                             magstimObject = rapid('COM4','Rapid','7cef-6da58442-3e');
                             
                             magstimObject.disconnect();
                             magstimObject.connect();
                             magstimObject.arm();
                             magstimObject.setAmplitudeA(50);
-                            pause(5);
+                            magstimObject.pause(5);
                             firstime = 2;
                         end
                         
                         
                         
                         
+                        
+%                         allvec = [allvec EEGData(1,:)];
+%                         sample = length(allvec);
                         sample = sample + length(EEGData(1,:));
-                        disp(sample);
+                        
                         allvec = [allvec EEGData(1,:)];
                         h = (1/fs)*1000;     %step size in ms
                         der1 = diff(allvec)/h;        %calculates first derivative
@@ -153,42 +130,44 @@ function combine()
 %                             magstimObject.disconnect();
                             
                         end
-                        if firstime == 2 && ~isempty(optimal)
-                             window = optimal.window_length;
-                             edge = optimal.edge;
-                             p = optimal.ar_order;
-                           
-                            if mod(sample,window) == 0
-                                
-                                disp('sample: ')
-                                fprintf('%.2f\t\n',sample);
-                                chunk = allvec(1,sample-window+1:sample);
-                                allvec = [];
-                                chunk = bandpass(chunk,[8,13],fs);
-                                coeffs = aryule(chunk(edge+1:end-edge), p); 
-                                coeffs = -coeffs(end:-1:2);
-                                nextvalues = zeros(1,p+forwardsample);
-                                nextvalues(1:p) = chunk(end-p-edge+1:end-edge);
+                        
+                             
+                        disp(sample);
+                        if mod(sample,window) == 0 && sample<3000
 
-                                for i = 1:forwardsample
-                                    nextvalues(p+i) = coeffs*nextvalues(i:p+i-1)';
-                                end
-                                
-                                phase = angle(hilbert(nextvalues(p+1:end)));
-                                p1 = find(abs(phase(:)-pi) < 0.1);
-                                %p2 = find(abs(phase(:)-0) < 0.1);
-                                t1 = find(p1 - edge > 0);
-                                disp('t1: ')
-                                fprintf('%.2f\t\n',t1);
-                                disp(phase);
-                                %t2 = find(p1 - edge > 0);
-                                pause(p1(t1(1))/1000);
-                                disp('fire before');
-                                magstimObject.fire();
-                                disp('fire after');
-                                firstime = 3;
-                                disp(firstime);
+%                             disp('sample: ')
+%                             fprintf('%.2f\t\n',sample);
+                            chunk = allvec(1,end-window+1:end);
+                            allvec = [];
+                            chunk = bandpass(chunk,[8,13],fs);
+                            coeffs = aryule(chunk(edge+1:end-edge), p); 
+                            coeffs = -coeffs(end:-1:2);
+                            nextvalues = zeros(1,p+forwardsample);
+                            nextvalues(1:p) = chunk(end-p-edge+1:end-edge);
+
+                            for i = 1:forwardsample
+                                nextvalues(p+i) = coeffs*nextvalues(i:p+i-1)';
                             end
+
+                            phase = angle(hilbert(nextvalues(p+1:end)));
+                            p1 = find(abs(phase(:)-pi) < 0.1);
+                            %p2 = find(abs(phase(:)-0) < 0.1);
+                            t1 = find(p1 - edge > 0);
+%                             disp('t1: ')
+%                             fprintf('%.2f\t\n',t1);
+                            disp(phase);
+                            %t2 = find(p1 - edge > 0);
+                            pause(p1(t1(1))/1000);
+                            disp('fire before');
+                            magstimObject.fire();
+                            disp('fire after');
+                            
+                            disp(firstime);
+                            magstimObject.pause(5);
+                        end
+                        if sample==3000
+                            magstimObject.disarm();
+                            magstimObject.disconnect();
                         end
                         if dims(2) > 1000000 / props.samplingInterval
                             data1s = data1s(:, dims(2) - 1000000 / props.samplingInterval : dims(2));

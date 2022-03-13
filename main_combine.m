@@ -292,15 +292,5 @@ function [optimal] = main_combine(data,fs)
 
     clear('row_index', 'subject', 'epochs', 'peak_frequency', 'filter_order_range', 'ord', 'bounds_ar_order', 'filter_objects_by_order', 'bounds_edge', 'bounds_filter_order', 'bounds_window', 'D', 'includemask', 'estamp', 'estphase', 'optimal_parameters', 'ga_output', 'phases_error')
 
-    %% save data
-
-    fprintf('\nSaving the results table...')
-    save('results_table', 'T', '-v7.3')
-    fprintf('\nDone.\n')
-
-    % NOTE: It's possible to load the data and continue the script below
-    T(ismember(T.Row, {'SCREEN_001', 'SCREEN_017', 'SCREEN2_085'}),:) = [];
-    %%T.epochs_truephase_ang_var = (T.epochs_truephase_angdev.^2)/2;
-
-
+  
 

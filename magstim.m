@@ -290,8 +290,14 @@ classdef magstim < handle
     methods (Access = 'protected')
         %%
         function maintainCommunication(self)
-        	fprintf(self.port, 'Q@n');    
-            fread(self.port, 3);
+            try
+                fprintf(self.port, 'Q@n');    
+                fread(self.port, 3);
+            catch
+                fopen(self.port);
+                fprintf(self.port, 'Q@n');    
+                fread(self.port, 3);
+            end
         end
         
         function enableCommunicationTimer(self)
